@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Serialization;
 
 [RequireComponent(typeof(Rigidbody2D), typeof(Animator), typeof(Collider2D))]
+[RequireComponent(typeof(Health))]
 public class Enemy : MonoBehaviour
 {
     [Header("Movement")]
@@ -21,13 +22,31 @@ public class Enemy : MonoBehaviour
     [Header("Visuals")]
     [SerializeField] private SpriteRenderer spriteRenderer;
 
+    [Header("Attack")]
+    [SerializeField, Min(0f)] private float attackRange = 1f;
+    [SerializeField, Min(0f)] private float attackVerticalTolerance = 1f;
+    [SerializeField, Min(0f)] private float attackWindup = 0.25f;
+    [SerializeField, Min(0f)] private float attackDuration = 0.6f;
+    [SerializeField, Min(0f)] private float attackCooldown = 1f;
+    [SerializeField, Min(1)] private int attackDamage = 1;
+
+    private float nextAttackTime;
+    private Health playerHealth;
+
     public Rigidbody2D Rb { get; private set; }
     public Animator Animator { get; private set; }
+    public Health Health { get; private set; }
 
     public Transform Player { get; private set; }
 
     public float MoveSpeed => moveSpeed;
     public float DetectionRange => detectionRange;
+    public float AttackWindup => attackWindup;
+    public float AttackDuration => attackDuration;
+    public bool CanAttack => Time.time >= nextAttackTime;
+
+    // Cho các hiệu ứng đánh trúng hoặc âm thanh sử dụng về sau.
+    public event System.Action<Transform> AttackHit;
 
     public int FacingDirection { get; private set; } = 1;
     public SpriteRenderer Sr { get; private set; }
@@ -35,17 +54,20 @@ public class Enemy : MonoBehaviour
     private float groundCheckOffsetX;
     private float wallCheckOffsetX;
 
+
     // State Machine
     public EnemyStateMachine StateMachine { get; private set; }
 
     public EnemyIdleState IdleState { get; private set; }
     public EnemyPatrolState PatrolState { get; private set; }
     public EnemyChaseState ChaseState { get; private set; }
+    public EnemyAttackState AttackState { get; private set; }
 
     private void Awake()
     {
         Rb = GetComponent<Rigidbody2D>();
         Animator = GetComponent<Animator>();
+        Health = GetComponent<Health>();
         bodyCollider = GetComponent<Collider2D>();
         Sr = spriteRenderer != null ? spriteRenderer : GetComponentInChildren<SpriteRenderer>();
 
@@ -60,6 +82,7 @@ public class Enemy : MonoBehaviour
         IdleState = new EnemyIdleState(this, StateMachine);
         PatrolState = new EnemyPatrolState(this, StateMachine);
         ChaseState = new EnemyChaseState(this, StateMachine);
+        AttackState = new EnemyAttackState(this, StateMachine);
     }
 
     private void Start()
@@ -69,6 +92,7 @@ public class Enemy : MonoBehaviour
         if (playerObject != null)
         {
             Player = playerObject.transform;
+            playerHealth = playerObject.GetComponent<Health>();
         }
 
         StateMachine.Initialize(PatrolState);
@@ -81,7 +105,7 @@ public class Enemy : MonoBehaviour
 
     public bool CanSeePlayer()
     {
-        if (Player == null)
+        if (Player == null || (playerHealth != null && playerHealth.IsDead))
             return false;
 
         float distance = Vector2.Distance(transform.position, Player.position);
@@ -176,5 +200,32 @@ public class Enemy : MonoBehaviour
     public void StepBack()
     {
         Rb.position += Vector2.left * FacingDirection * 0.1f;
+    }
+
+    public bool IsPlayerInAttackRange()
+    {
+        if (Player == null || (playerHealth != null && playerHealth.IsDead))
+            return false;
+
+        Vector2 offset = Player.position - transform.position;
+        float forwardDistance = offset.x * FacingDirection;
+
+        return forwardDistance >= 0f &&
+               forwardDistance <= attackRange &&
+               Mathf.Abs(offset.y) <= attackVerticalTolerance;
+    }
+
+    public void StartAttackCooldown()
+    {
+        nextAttackTime = Time.time + attackCooldown;
+    }
+
+    public void TryAttackHit()
+    {
+        if (!IsPlayerInAttackRange() || playerHealth == null)
+            return;
+
+        playerHealth.TakeDamage(Mathf.Max(1, attackDamage));
+        AttackHit?.Invoke(Player);
     }
 }

@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(Health))]
 public class Player : MonoBehaviour
 {
     [Header("Movement")]
@@ -23,6 +24,7 @@ public class Player : MonoBehaviour
 
     public Rigidbody2D Rb { get; private set; }
     public Animator Animator { get; private set; }
+    public Health Health { get; private set; }
 
     // Input
     public Vector2 MoveInput { get; private set; }
@@ -53,6 +55,7 @@ public class Player : MonoBehaviour
     {
         Rb = GetComponent<Rigidbody2D>();
         Animator = GetComponent<Animator>();
+        Health = GetComponent<Health>();
 
         NormalGravityScale = Rb.gravityScale;
         StateMachine = new PlayerStateMachine();
