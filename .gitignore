@@ -393,3 +393,6 @@ FodyWeavers.xsd
 
 # Crash reports
 sysinfo.txt
+
+# Keep the standalone combat test runner reproducible.
+!Tests/CombatTests/CombatTests.csproj

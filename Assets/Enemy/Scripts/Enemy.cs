@@ -68,6 +68,7 @@ public class Enemy : MonoBehaviour
         Rb = GetComponent<Rigidbody2D>();
         Animator = GetComponent<Animator>();
         Health = GetComponent<Health>();
+        Health.Died += HandleDeath;
         bodyCollider = GetComponent<Collider2D>();
         Sr = spriteRenderer != null ? spriteRenderer : GetComponentInChildren<SpriteRenderer>();
 
@@ -100,7 +101,28 @@ public class Enemy : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (Health.IsDead)
+            return;
         StateMachine.CurrentState?.Update();
+    }
+
+    public void TakeDamage(int amount)
+    {
+        Health.TakeDamage(amount);
+    }
+
+    private void HandleDeath()
+    {
+        Rb.linearVelocity = Vector2.zero;
+        Rb.simulated = false;
+        bodyCollider.enabled = false;
+        Animator.enabled = false;
+    }
+
+    private void OnDestroy()
+    {
+        if (Health != null)
+            Health.Died -= HandleDeath;
     }
 
     public bool CanSeePlayer()
